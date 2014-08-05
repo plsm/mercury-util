@@ -1,0 +1,59 @@
+
+MMC = mmc
+
+MFLAGS_COMMON = \
+--make \
+--output-compile-error-lines 500 \
+--max-error-line-width 120
+
+PREFIX = @prefix@
+
+MERSENNE_TWISTER = @mersenne_twister@
+
+PACKAGE = libmercury_utils
+
+ifeq ( $(MERSENNE_TWISTER), int)
+mersenneTwister.m: ./mersenneTwister-int.m
+	ln -s ./mersenneTwister-int.m mersenneTwister.m
+endif
+ifeq ( $(MERSENNE_TWISTER), integer)
+mersenneTwister.m: ./mersenneTwister-integer.m
+	ln -s ./mersenneTwister-integer.m mersenneTwister.m
+endif
+
+all: build
+
+help:
+	@echo -e "Makefile for creating the mercury utils library in C and Java.  Options are\n\
+  PREFIX=directory   directory where the library is installed, by default is $(PREFIX)\n\
+\n\
+  MERSENNE_TWISTER=int       use the pseudo-random number generator mersenne twister\n\
+  MERSENNE_TWISTER=integer   with the given library\n\
+\n\
+  help               show this help\n\
+\n\
+  install            install the library\n\
+\n\
+  clean              remove compilation files"            
+
+$(PACKAGE).so: ./rng.m ./foldable.m ./fraction.m ./printable.m ./probability.m ./rng.distribution.m ./mersenneTwister.m
+
+build: build-C build-java
+
+install: install-C install-java
+
+build-C:
+	$(MMC) $(MFLAGS_COMMON) $(PACKAGE)
+
+install-C:
+	$(MMC) $(MFLAGS_COMMON) --install-prefix $(PREFIX) $(PACKAGE).install
+
+build-java:
+	$(MMC) $(MFLAGS_COMMON) --grade java --no-libgrade --libgrade java $(PACKAGE)
+
+install-java:
+	$(MMC) $(MFLAGS_COMMON) --grade java --install-prefix $(PREFIX) --no-libgrade --libgrade java $(PACKAGE).install
+
+clean:
+	rm -fr Mercury
+	rm *.err
