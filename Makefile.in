@@ -56,4 +56,4 @@ install-java:
 
 clean:
 	rm -fr Mercury
-	rm *.err
+	rm -f *.err *~
