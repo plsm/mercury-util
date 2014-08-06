@@ -24,17 +24,17 @@ endif
 all: build
 
 help:
-	@echo -e "Makefile for creating the mercury utils library in C and Java.  Options are\n\
-  PREFIX=directory   directory where the library is installed, by default is $(PREFIX)\n\
-\n\
-  MERSENNE_TWISTER=int       use the pseudo-random number generator mersenne twister\n\
-  MERSENNE_TWISTER=integer   with the given library\n\
-\n\
-  help               show this help\n\
-\n\
-  install            install the library\n\
-\n\
-  clean              remove compilation files"            
+	@echo "Makefile for creating the mercury utils library in C and Java.  Options are"
+	@echo "  PREFIX=directory   directory where the library is installed, by default is $(PREFIX)"
+	@echo
+	@echo "  MERSENNE_TWISTER=int       use the pseudo-random number generator mersenne twister"
+	@echo "  MERSENNE_TWISTER=integer   with the given library"
+	@echo
+	@echo "  help               show this help"
+	@echo
+	@echo "  install            install the library"
+	@echo
+	@echo "  clean              remove compilation files"            
 
 $(PACKAGE).so: ./rng.m ./foldable.m ./fraction.m ./printable.m ./probability.m ./rng.distribution.m ./mersenneTwister.m
 
