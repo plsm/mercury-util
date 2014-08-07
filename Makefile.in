@@ -39,13 +39,14 @@ install-strip: install
 
 clean:
 	rm -fr Mercury
-	rm -f *.err *~
+	rm -f *.err *~ *.mh
 
 distclean: clean
 	rm -fr ./autom4te.cache/
 	rm -f ./config.log ./config.status
-	rm -f ./mersenneTwister.m
 	rm -f ./configure ./Makefile
+	rm -f ./mersenneTwister.m
+	rm -f ./mercury_utils.jar
 
 mostlyclean: clean
 
