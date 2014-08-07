@@ -55,6 +55,20 @@ maintainer-clean: clean
 	@echo 'deletes files that may need special tools to rebuild.'
 	rm -f ./mersenneTwister.m
 
+TAGS:
+
+# documentation targets
+
+info:
+
+dvi:
+html:
+pdf:
+ps:
+
+dist:
+
+check:
 
 ################################################################################
 # OTHER TARGETS
