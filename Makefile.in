@@ -2,9 +2,18 @@
 MMC = mmc
 
 MFLAGS_COMMON = \
---make \
---output-compile-error-lines 500 \
---max-error-line-width 120
+--make                                                       \
+--output-compile-error-lines  500                            \
+--max-error-line-width        120                            \
+--search-directory            @lib_mc4ap@/lib/mercury/ints/  \
+--mercury-library-directory   @lib_mc4ap@/lib/mercury/
+
+MFLAGS_JAVA_GRADE = \
+--java-classpath @lib_mc4ap@/lib/mercury/lib/java/ui_swing.jar  \
+--mercury-library ui_swing
+
+MFLAGS_OTHER_GRADES = \
+--mercury-library ui_console
 
 PREFIX = @prefix@
 
@@ -12,16 +21,43 @@ MERSENNE_TWISTER = @mersenne_twister@
 
 PACKAGE = libmercury_utils
 
-ifeq ( $(MERSENNE_TWISTER), int)
-mersenneTwister.m: ./mersenneTwister-int.m
-	ln -s ./mersenneTwister-int.m mersenneTwister.m
-endif
-ifeq ( $(MERSENNE_TWISTER), integer)
-mersenneTwister.m: ./mersenneTwister-integer.m
-	ln -s ./mersenneTwister-integer.m mersenneTwister.m
-endif
+################################################################################
+# STANDARD TARGETS
 
 all: build
+
+install: install-C install-java
+
+install-html:
+install-dvi:
+install-pdf:
+install-ps:
+
+uninstall:
+
+install-strip: install
+
+clean:
+	rm -fr Mercury
+	rm -f *.err *~
+
+distclean: clean
+	rm -fr ./autom4te.cache/
+	rm -f ./config.log ./config.status
+	rm -f ./mersenneTwister.m
+	rm -f ./configure ./Makefile
+
+mostlyclean: clean
+
+maintainer-clean: clean
+	@echo 'This command is intended for maintainers to use; it'
+	@echo 'deletes files that may need special tools to rebuild.'
+	rm -f ./mersenneTwister.m
+
+
+################################################################################
+# OTHER TARGETS
+
 
 help:
 	@echo "Makefile for creating the mercury utils library in C and Java.  Options are"
@@ -36,24 +72,24 @@ help:
 	@echo
 	@echo "  clean              remove compilation files"            
 
-$(PACKAGE).so: ./rng.m ./foldable.m ./fraction.m ./printable.m ./probability.m ./rng.distribution.m ./mersenneTwister.m
-
-build: build-C build-java
-
-install: install-C install-java
+build:
+ifeq (@mersenne_twister@, int)
+	if test ! -f mersenneTwister.m ; then ln -s ./mersenneTwister-int.m mersenneTwister.m     ; fi
+endif
+ifeq (@mersenne_twister@, integer)
+	if test ! -f mersenneTwister.m ; then ln -s ./mersenneTwister-integer.m mersenneTwister.m ; fi
+endif
+	$(MAKE) build-C
+	$(MAKE) build-java
 
 build-C:
-	$(MMC) $(MFLAGS_COMMON) $(PACKAGE)
+	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_OTHER_GRADES) $(PACKAGE)
 
 install-C:
 	$(MMC) $(MFLAGS_COMMON) --install-prefix $(PREFIX) $(PACKAGE).install
 
 build-java:
-	$(MMC) $(MFLAGS_COMMON) --grade java --no-libgrade --libgrade java $(PACKAGE)
+	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_JAVA_GRADE) --grade java --no-libgrade --libgrade java $(PACKAGE)
 
 install-java:
-	$(MMC) $(MFLAGS_COMMON) --grade java --install-prefix $(PREFIX) --no-libgrade --libgrade java $(PACKAGE).install
-
-clean:
-	rm -fr Mercury
-	rm *.err
+	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_JAVA_GRADE) --grade java --install-prefix $(PREFIX) --no-libgrade --libgrade java $(PACKAGE).install
