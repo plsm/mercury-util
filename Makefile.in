@@ -21,12 +21,17 @@ MERSENNE_TWISTER = @mersenne_twister@
 
 PACKAGE = libmercury_utils
 
+MODULES = foldable fraction mercury_utils mersenneTwister parseable	\
+parseable.iou printable probability rng rng.distribution
+
 ################################################################################
 # STANDARD TARGETS
 
 all: build
 
-install: install-C install-java
+install:
+	$(MAKE) install-java
+	$(MAKE) install-C
 
 install-html:
 install-dvi:
@@ -34,6 +39,13 @@ install-pdf:
 install-ps:
 
 uninstall:
+	for MODULE in $(MODULES) ; do for EXT in int int2 int3 mh mih module_dep ; do rm -v @prefix@/lib/mercury/ints/$$MODULE.$$EXT ; done ; done
+	for MODULE in $(MODULES) ; do rm -v @prefix@/lib/mercury/inc/$$MODULE.mh @prefix@/lib/mercury/lib/*/inc/$$MODULE.mih ; done
+	rm -v \
+		@prefix@/lib/mercury/lib/*/$(PACKAGE).a           \
+		@prefix@/lib/mercury/lib/*/$(PACKAGE).so          \
+		@prefix@/lib/mercury/lib/java/mercury_utils.jar   \
+		@prefix@/lib/mercury/modules/*/mercury_utils.init
 
 install-strip: install
 
@@ -94,17 +106,18 @@ endif
 ifeq (@mersenne_twister@, integer)
 	if test ! -f mersenneTwister.m ; then ln -s ./mersenneTwister-integer.m mersenneTwister.m ; fi
 endif
-	$(MAKE) build-C
 	$(MAKE) build-java
+	$(MAKE) build-C
 
 build-C:
-	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_OTHER_GRADES) $(PACKAGE)
+	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_OTHER_GRADES) --target c $(PACKAGE)
 
 install-C:
-	$(MMC) $(MFLAGS_COMMON) --install-prefix $(PREFIX) $(PACKAGE).install
+	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_OTHER_GRADES) --target c --install-prefix $(PREFIX) --libgrades-exclude java \
+		$(PACKAGE).install
 
 build-java:
-	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_JAVA_GRADE) --grade java --no-libgrade --libgrade java $(PACKAGE)
+	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_JAVA_GRADE) --grade java $(PACKAGE)
 
 install-java:
 	$(MMC) $(MFLAGS_COMMON) $(MFLAGS_JAVA_GRADE) --grade java --install-prefix $(PREFIX) --no-libgrade --libgrade java $(PACKAGE).install

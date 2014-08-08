@@ -2,9 +2,8 @@
 *~
 \#*#
 
-# files created by autoconf and generated configure script and during compilation and instalation
+# files created by autoconf
 autom4te.cache/*
-configure
 
 # files created by generated configure script
 Makefile
