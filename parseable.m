@@ -1,5 +1,8 @@
 /**
- * 
+ * Provides a type class which represents objects capable of being parsed
+ * to a list of bytes and vice-versa.  Primitive types are parsed to a list
+ * of bytes such that the resulting list is the same across several mercury
+ * grades.  Currently we support the C and java grades.
 
  * @author Pedro Mariano
  * @version 1.0 2013/04/15
@@ -8,71 +11,154 @@
 
 :- interface.
 
-:- import_module bool, list.
+:- include_module iou.
+:- import_module bool, io, list, map, maybe.
 
+/**
+ * This type class can be used by any type that provides a mean to convert
+ * a value to a list of bytes and vice-versa.  This list of bytes can be
+ * read from a binary stream or written to a binary stream.
+  
+ */
 :- typeclass parseable(T)
 	where
 [
-	pred parse(T, list(int), list(int)),
+	pred parse(T, parseable.state, parseable.state),
 	mode parse(in, out, in) is det,
 	mode parse(out, in, out) is semidet
 ].
 
+:- type state == list(int).
+
+:- type parser(T) == pred(T, parseable.state, parseable.state).
+
+:- inst parserD == (pred(in,  out, in)  is det).
+:- inst parserS == (pred(out, in,  out) is semidet).
+
+/**
+ * Represents how lists should be parsed.
+
+ * @cons normalType A list should be considered a normal type, each
+ * constructor is assigned a different byte.  Suitable for lists with less
+ * than five elements.
+
+ * @cons withLength There is an initial 32 bit int with the list size.
+ * List elements are not separated by any byte token.  Suitable for lists
+ * with more than four elements.
+
+ * @cons onlyElements(Length) Only the elements are parsed to bytes.
+ * Suitable for lists that have the same length.
+  
+ */
+
+:- type parseListMode --->
+	normalType ;
+	withLength ;
+	onlyElements(int).
+
 /**
  * This predicate parses a list of bytes to a list of {@code parseable}
- * elements.  The predicate tries to parse as many possible.
- */
-:- pred parseList(list(T), list(int), list(int)) <= parseable(T).
-:- mode parseList(in, out, in) is det.
-:- mode parseList(out, in, out) is semidet.
+ * elements.  Parameter {@code ParseListMode} specifies how the list is
+ * parsed.
+
+*/
+:- pred parseList(parseListMode, list(T), parseable.state, parseable.state) <= parseable(T).
+:- mode parseList(in, in, out, in) is det.
+:- mode parseList(in, out, in, out) is semidet.
 
 /**
- * This predicate parses an unsigned byte containing the number of elements
- * in the list and then parses the elements of the list.
+ * This predicate parses a list of bytes to a list of {@code parseable}
+ * elements.  Parameter {@code ParseListMode} specifies how the list is
+ * parsed.
+
+*/
+:- pred parseList(parseListMode, parser(T), list(T), parseable.state, parseable.state).
+:- mode parseList(in, in(parserD), in,  out, in)  is det.
+:- mode parseList(in, in(parserS), out, in,  out) is semidet.
+%:- mode parseList(in, in(pred(in,  out, in)  is det),     in,  out, in)  is det.
+%:- mode parseList(in, in(pred(out, in,  out) is semidet), out, in,  out) is semidet.
+
+/**
+ * This predicate parses a list of bytes to a map of {@code parseable} keys
+ * and elements.  The map is stored as a list of keys and elements pairs.
+ * Parameter {@code ParseListMode} specifies how the lists are parsed.
+
+*/
+:- pred parseMap(parseListMode, map(K, V), parseable.state, parseable.state) <= (parseable(K), parseable(V)).
+:- mode parseMap(in, in, out, in) is det.
+:- mode parseMap(in, out, in, out) is semidet.
+
+/**
+ * float32(Value, !List)
+
+ * Parse a floating point number to a list of four bytes.  This predicate
+ * guarantees that a list of bytes results in the same floating point value
+ * across the C and java grades.
+  
  */
-:- pred parseListMax255(list(T), list(int), list(int)) <= parseable(T).
-:- mode parseListMax255(in, out, in) is det.
-:- mode parseListMax255(out, in, out) is semidet.
+:- pred float32(float, parseable.state, parseable.state).
+:- mode float32(in, out, in) is det.
+:- mode float32(out, in, out) is semidet.
 
-:- func toBytes(T) = list(int) <= parseable(T).
-
-:- func listToBytes(list(T)) = list(int) <= parseable(T).
-
-:- pred int(int, list(int), list(int)).
-:- mode int(in, out, in) is det.
-:- mode int(out, in, out) is semidet.
-
-:- pred float(float, list(int), list(int)).
-:- mode float(in, out, in) is det.
-:- mode float(out, in, out) is semidet.
-
-:- pred bool(bool, list(int), list(int)).
+/**
+ * bool(Value, !List)
+  
+ * Parse a Boolean value to a list of one byte.
+ */
+:- pred bool(bool, parseable.state, parseable.state).
 :- mode bool(in, out, in) is det.
 :- mode bool(out, in, out) is semidet.
 
-:- pred int32(int, list(int), list(int)).
+/**
+ * int32(Value, !List)
+
+ * Parse an integer number to a list of four bytes.  This predicate
+ * guarantees that a list of bytes results in the same integer across the C
+ * and java grades.
+  
+ */
+:- pred int32(int, parseable.state, parseable.state).
 :- mode int32(in, out, in) is det.
 :- mode int32(out, in, out) is semidet.
 
-:- pred int16(int, list(int), list(int)).
+/**
+ * int16(Value, !List)
+
+ * Parse an integer number to a list of two bytes.  This predicate
+ * guarantees that a list of bytes results in the same integer across the C
+ * and java grades.
+  
+ */
+:- pred int16(int, parseable.state, parseable.state).
 :- mode int16(in, out, in) is det.
 :- mode int16(out, in, out) is semidet.
 
-:- pred int8(int, list(int), list(int)).
+/**
+ * int8(Value, !List)
+
+ * Parse an integer number to a list of one byte.  This predicate
+ * guarantees that a list of bytes results in the same integer across the C
+ * and java grades.
+  
+ */
+:- pred int8(int, parseable.state, parseable.state).
 :- mode int8(in, out, in) is det.
 :- mode int8(out, in, out) is semidet.
 
 /**
- * skip(Byte, HowMany, !ListBytes).
+ * Mercury primitive {@conde int} type is parsed to a list of four bytes.
  */
-:- pred skip(int, int, list(int), list(int)).
-:- mode skip(in, in, in, out) is semidet.
-:- mode skip(in, in, out, in) is det.
-
 :- instance parseable(int).
 
+/**
+ * Mercury primitive {@conde float} type is parsed to a list of four bytes.
+ */
 :- instance parseable(float).
 
+/**
+ * Mercury {@code bool} type is parsed to a list of one byte.
+ */
+:- instance parseable(bool).
 
 :- implementation.
 
@@ -83,12 +169,17 @@
 
 :- instance parseable(int) where
 [
-	pred(parse/3) is int
+	pred(parse/3) is int32
 ].
 
 :- instance parseable(float) where
 [
-	pred(parse/3) is float
+	pred(parse/3) is float64
+].
+
+:- instance parseable(bool) where
+[
+	pred(parse/3) is bool
 ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -97,362 +188,336 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of exported predicates and functions
 
+% parseList(Mode, List) -->
+% 	parseList(Mode, parseListElement, List).
 
-parseList([]) -->
+parseList(normalType, []) -->
 	[0].
 
-parseList([Head | Tail]) -->
+parseList(normalType, [Head | Tail]) -->
 	[1],
 	parseable.parse(Head),
-	parseList(Tail).
+	parseList(normalType, Tail).
 
-% :- pragma promise_pure(parseList/3).
+parseList(withLength, List) -->
+	parseList_withLength(List).
 
-% parseList(List::in, Bytes::out, RestBytes::in) :-
-% 	List = [],
-% 	Bytes = RestBytes
-% 	;
-% 	List = [Element | RestList],
-% 	parse(Element, BytesElement, BytesRestList),
-% 	parseList(RestList, BytesRestList, RestBytes),
-% 	Bytes = list.append(BytesElement, BytesRestList).
-
-% parseList(List::out, Bytes::in, RestBytes::out) :-
-% 	(if
-% 		parse(Element, Bytes, BytesRestList)
-% 	then
-% 		List = [Element | RestList],
-% 		parseList(RestList, BytesRestList, RestBytes)
-% 	else
-% 		List = [],
-% 		Bytes = RestBytes
-% 	).
+parseList(onlyElements(Length), List) -->
+	parseList_onlyElements(Length, List).
 
 
-parseListMax255(List) -->
-	[Size],
-	{Size = list.length(List)},
-	parseList(Size, List).
+parseList(normalType, _Parser, []) -->
+	[0].
 
-/*
-parseList(List::in) -->
-	{List = []}
-	;
-	{List = [Element | RestList]},
-	parse(Element),
-	parseList(RestList).
+parseList(normalType, Parser, [Head | Tail]) -->
+	[1],
+	Parser(Head),
+	parseList(normalType, Parser, Tail).
 
-parseList(List::out) -->
-	(if
-		parse(Element)
-	then
-		{List = [Element | RestList]},
-		parseList(RestList)
-	else
-		{List = []}
-	).
-*/
+parseList(withLength, Parser, List) -->
+	parseList_withLength(Parser, List).
 
-toBytes(Element) = Result :-
- 	parse(Element, Result, []).
+parseList(onlyElements(Length), Parser, List) -->
+	parseList_onlyElements(Length, Parser, List).
 
 
-listToBytes([]) = [].
-listToBytes([Element | RestElements]) = Result :-
-	Result = list.append(toBytes(Element), listToBytes(RestElements)).
+:- pragma promise_pure(parseMap/4).
 
-% int16(Num) -->
-% 	[ByteLow, ByteHigh],
-% 	{Num / 256 = ByteHigh,
-% 	 Num /\ 255 = ByteLow,
-% 	 Num = ByteHigh << 8 + ByteLow}.
+parseMap(ParseListMode::in, Map::in, ListBytes::out, RestBytes::in) :-
+	parseList(ParseListMode, map.keys(Map), ListBytes, TmpBytes),
+	parseList(ParseListMode, map.values(Map), TmpBytes, RestBytes).
 
-int(Num) -->
-	intBytes(Num).
+parseMap(ParseListMode::in, Map::out, ListBytes::in, RestBytes::out) :-
+	parseList(ParseListMode, Keys, ListBytes, TmpBytes),
+	parseList(ParseListMode, Values, TmpBytes, RestBytes),
+	Map = map.from_corresponding_lists(Keys, Values)
+	.
 
-float(Num) -->
-	floatBytes(Num).
-
-bool(no) --> [0].
-bool(yes) --> [1].
-
-:- pragma promise_pure(int32/3).
-
-int32(Num::in, [Byte1, Byte2, Byte3, Byte4 | Rest]::out, Rest::in) :-
-	(Num >> 24) /\ 255 = Byte4,
-	(Num >> 16) /\ 255 = Byte3,
-	(Num >> 8) /\ 255 = Byte2,
-	Num /\ 255 = Byte1.
-
-int32(Num::out, [Byte1, Byte2, Byte3, Byte4 | Rest]::in, Rest::out) :-
-	Num =
-	(Byte4 << 24)
-	\/ (Byte3 << 16)
-	\/ (Byte2 << 8)
-	\/ Byte1.
-
+int32(Num, [Byte1, Byte2, Byte3, Byte4 | Rest], Rest) :-
+	int32bits(Num, Byte1, Byte2, Byte3, Byte4).
 
 int16(Num, [B0, B1 | Rest], Rest) :-
-	int16Bytes(Num, B0, B1).
+	int16bits(Num, B0, B1).
 
-% :- pragma promise_pure(int16/3).
+int8(Num, [B0 | Rest], Rest) :-
+	int8bits(Num, B0).
 
-% int16(Num::in, [ByteLow, ByteHigh | Rest]::out, Rest::in) :-
-% 	(Num >> 8) /\ 255 = ByteHigh,
-% 	Num /\ 255 = ByteLow.
+float32(Num, [Byte1, Byte2, Byte3, Byte4 | Rest], Rest) :-
+	float32bits(Num, Byte1, Byte2, Byte3, Byte4).
 
-% int16(Num::out, [ByteLow, ByteHigh | Rest]::in, Rest::out) :-
-% 	Num = ByteHigh << 8 \/ ByteLow.
+:- pred float64(float, parseable.state, parseable.state).
+:- mode float64(in, out, in) is det.
+:- mode float64(out, in, out) is semidet.
 
-:- pragma promise_pure(int8/3).
+float64(Num, [Byte1, Byte2, Byte3, Byte4, Byte5, Byte6, Byte7, Byte8 | Rest], Rest) :-
+	float64bits(Num, Byte1, Byte2, Byte3, Byte4, Byte5, Byte6, Byte7, Byte8).
 
-int8(Num::in, [Byte | Rest]::out, Rest::in) :-
-	Num = Byte.
-
-int8(Num::out, [Byte | Rest]::in, Rest::out) :-
-	(if
-		Byte > 127
-	then
-		Num = 256 - Byte
-	else
-		Num = Byte
-	).
-
-skip(Byte, HowMany) -->
-	(if
-		{HowMany = 0}
-	then
-		{true}
-	else
-		[Byte],
-		skip(Byte, HowMany - 1)
-	).
+bool(no)  --> [0].
+bool(yes) --> [1].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of private predicates and functions
 
+:- pred parseListElement(T, parseable.state, parseable.state) <= parseable(T).
+:- mode parseListElement(in, out, in) is det.
+:- mode parseListElement(out, in, out) is semidet.
 
-:- pred parseList(int, list(T), list(int), list(int)) <= parseable(T).
-:- mode parseList(in, in, out, in) is det.
-:- mode parseList(in, out, in, out) is semidet.
+parseListElement(T) -->
+	parseable.parse(T).
 
-parseList(Count, List) -->
+:- pred parseList_withLength(list(T), parseable.state, parseable.state) <= parseable(T).
+:- mode parseList_withLength(in, out, in) is det.
+:- mode parseList_withLength(out, in, out) is semidet.
+
+:- pragma promise_pure(parseList_withLength/3).
+
+parseList_withLength(ListElements::in, ListBytes::out, RestBytes::in) :-
+	int32(list.length(ListElements), ListBytes, TmpBytes),
+	parseList_onlyElements(list.length(ListElements), ListElements, TmpBytes, RestBytes).
+
+parseList_withLength(ListElements::out, ListBytes::in, RestBytes::out) :-
+	int32(NumberElements, ListBytes, TmpBytes),
+	parseList_onlyElements(NumberElements, ListElements, TmpBytes, RestBytes).
+
+
+:- pred parseList_onlyElements(int, list(T), parseable.state, parseable.state) <= parseable(T).
+:- mode parseList_onlyElements(in, in, out, in) is det.
+:- mode parseList_onlyElements(in, out, in, out) is semidet.
+
+:- pragma promise_pure(parseList_onlyElements/4).
+
+parseList_onlyElements(NumberElements::in, ListElements::in, ListBytes::out, RestBytes::in) :-
+	ListElements = [],
 	(if
-		{Count = 0}
+		NumberElements = 0
 	then
-		{List = []}
-		;
-		{List = [_|_]},
-		{throw("Never reached")}
+		ListBytes = RestBytes
 	else
-		{List = [Element | RestList]},
-		parse(Element),
-		parseList(Count - 1, RestList)
-		;
-		{List = []},
-		{throw("Never reached")}
+		throw("parseList/4: there is a mismatch between the provided number of elements and the real number of elements in the list")
+	)
+	;
+	ListElements = [Element | RestElements],
+	parseable.parse(Element, ListBytes, TmpBytes),
+	parseList_onlyElements(NumberElements - 1, RestElements, TmpBytes, RestBytes).
+
+parseList_onlyElements(NumberElements::in, ListElements::out, ListBytes::in, RestBytes::out) :-
+	(if
+		NumberElements = 0
+	then
+		ListElements = [],
+		ListBytes = RestBytes
+	else
+		ListElements = [Element | RestElements],
+		parseable.parse(Element, ListBytes, TmpBytes),
+		parseList_onlyElements(NumberElements - 1, RestElements, TmpBytes, RestBytes)
 	).
 
 
-:- pred intBytes(int, list(int), list(int)).
-:- mode intBytes(in, out, in) is det.
-:- mode intBytes(out, in, out) is semidet.
+:- pred parseList_withLength(parser(T), list(T), parseable.state, parseable.state).
+:- mode parseList_withLength(in(parserD), in,  out, in)  is det.
+:- mode parseList_withLength(in(parserS), out, in,  out) is semidet.
+
+:- pragma promise_pure(parseList_withLength/4).
+
+parseList_withLength(Parser::in(parserD), ListElements::in, ListBytes::out, RestBytes::in) :-
+	int32(list.length(ListElements), ListBytes, TmpBytes),
+	parseList_onlyElements(list.length(ListElements), Parser, ListElements, TmpBytes, RestBytes).
+
+parseList_withLength(Parser::in(parserS), ListElements::out, ListBytes::in, RestBytes::out) :-
+	int32(NumberElements, ListBytes, TmpBytes),
+	parseList_onlyElements(NumberElements, Parser, ListElements, TmpBytes, RestBytes).
+
+
+:- pred parseList_onlyElements(int, parser(T), list(T), parseable.state, parseable.state).
+:- mode parseList_onlyElements(in, in(parserD), in,  out, in)  is det.
+:- mode parseList_onlyElements(in, in(parserS), out, in,  out) is semidet.
+
+:- pragma promise_pure(parseList_onlyElements/5).
+
+parseList_onlyElements(NumberElements::in, Parser::in(parserD), ListElements::in, ListBytes::out, RestBytes::in) :-
+	ListElements = [],
+	(if
+		NumberElements = 0
+	then
+		ListBytes = RestBytes
+	else
+		throw("parseList/4: there is a mismatch between the provided number of elements and the real number of elements in the list")
+	)
+	;
+	ListElements = [Element | RestElements],
+	Parser(Element, ListBytes, TmpBytes),
+	parseList_onlyElements(NumberElements - 1, Parser, RestElements, TmpBytes, RestBytes).
+
+parseList_onlyElements(NumberElements::in, Parser::in(parserS), ListElements::out, ListBytes::in, RestBytes::out) :-
+	(if
+		NumberElements < 0
+	then
+		throw("parse_onlyElements/5: invalid parameter NumberElements")
+	else if
+		NumberElements = 0
+	then
+		ListElements = [],
+		ListBytes = RestBytes
+	else
+		ListElements = [Element | RestElements],
+		Parser(Element, ListBytes, TmpBytes),
+		parseList_onlyElements(NumberElements - 1, Parser, RestElements, TmpBytes, RestBytes)
+	).
+
+:- pred float64bits(float, int, int, int, int, int, int, int, int).
+:- mode float64bits(in, out, out, out, out, out, out, out, out) is det.
+:- mode float64bits(out, in, in, in, in, in, in, in, in) is det.
 
 :- pragma foreign_proc(
 	"C",
-	intBytes(Num::in, Result::out, Rest::in),
+	float64bits(Num::in, B0::out, B1::out, B2::out, B3::out, B4::out, B5::out, B6::out, B7::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
-		unsigned char bytes [sizeof (int)];
-		int value;
+		unsigned char bytes [8];
+		double value;
 	} conv;
 	conv.value = Num;
-	int i;
-	Result = Rest;
-	for (i = sizeof (int) - 1; i >= 0; i--) {
-		Result = MR_list_cons (conv.bytes [i], Result);
-	}
+	B0 = conv.bytes [0];
+	B1 = conv.bytes [1];
+	B2 = conv.bytes [2];
+	B3 = conv.bytes [3];
+	B4 = conv.bytes [4];
+	B5 = conv.bytes [5];
+	B6 = conv.bytes [6];
+	B7 = conv.bytes [7];
 	"
 	).
 
 :- pragma foreign_proc(
 	"C",
-	intBytes(Num::out, List::in, Rest::out),
+	float64bits(Num::out, B0::in, B1::in, B2::in, B3::in, B4::in, B5::in, B6::in, B7::in),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
-		unsigned char bytes [sizeof (int)];
-		int value;
+		unsigned char bytes [8];
+		double value;
 	} conv;
-	int i;
-	int ok = 1;
-	for (i = 0; i < sizeof (int); i++) {
-		if (MR_list_is_empty (List)) {
-			ok = 0;
-			break;
-		}
-		else {
-			conv.bytes [i] = MR_list_head (List);
-			List = MR_list_tail (List);
-		}
-	}
-	if (ok == 1) {
-		Num = conv.value;
-		Rest = List;
-	}
-	SUCCESS_INDICATOR = ok;
+	conv.bytes [0] = B0;
+	conv.bytes [1] = B1;
+	conv.bytes [2] = B2;
+	conv.bytes [3] = B3;
+	conv.bytes [4] = B4;
+	conv.bytes [5] = B5;
+	conv.bytes [6] = B6;
+	conv.bytes [7] = B7;
+	Num = conv.value;
 	"
 	).
 
 :- pragma foreign_proc(
 	"Java",
-	intBytes(Num::in, Result::out, Rest::in),
+	float64bits(Num::in, B0::out, B1::out, B2::out, B3::out, B4::out, B5::out, B6::out, B7::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
-	Rest = list.cons (new Integer ((Num >> 24) & 0xFF), Rest);
-	Rest = list.cons (new Integer ((Num >> 16) & 0xFF), Rest);
-	Rest = list.cons (new Integer ((Num >> 8) & 0xFF), Rest);
-	Rest = list.cons (new Integer ((Num) & 0xFF), Rest);
-	Result = Rest;
+	long NumLong = Double.doubleToRawLongBits (Num);
+	B0 = (int) ( NumLong        & 0xFF);
+	B1 = (int) ((NumLong >> 8)  & 0xFF);
+	B2 = (int) ((NumLong >> 16) & 0xFF);
+	B3 = (int) ((NumLong >> 24) & 0xFF);
+	B4 = (int) ((NumLong >> 32) & 0xFF);
+	B5 = (int) ((NumLong >> 40) & 0xFF);
+	B6 = (int) ((NumLong >> 48) & 0xFF);
+	B7 = (int) ((NumLong >> 56) & 0xFF);
 	"
 	).
 
 :- pragma foreign_proc(
 	"Java",
-	intBytes(Num::out, List::in, Rest::out),
+	float64bits(Num::out, B0::in, B1::in, B2::in, B3::in, B4::in, B5::in, B6::in, B7::in),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
-	Num = 0;
-	boolean ok = true;
-	for (int i = 0; i < 4; i++) {
-		if (list.is_empty (List)) {
-			ok = false;
-			break;
-		}
-		else {
-			Num = Num | (list.det_head (List).intValue () << (8 * i));
-			List = list.det_tail (List);
-		}
-	}
-	if (ok) {
-		Rest = List;
-	}
-	else {Rest = null;}
-	SUCCESS_INDICATOR = ok;
+	long NumLong =
+	   (B0 & 0xFF)
+	| ((B1 & 0xFF) << 8)
+	| ((B2 & 0xFF) << 16)
+	| ((B3 & 0xFF) << 24)
+	| ((B4 & 0xFF) << 32)
+	| ((B5 & 0xFF) << 40)
+	| ((B6 & 0xFF) << 48)
+	| ((B7 & 0xFF) << 56);
+	Num = Double.longBitsToDouble (NumLong);
 	"
 	).
 
 
-
-
-:- pred floatBytes(float, list(int), list(int)).
-:- mode floatBytes(in, out, in) is det.
-:- mode floatBytes(out, in, out) is semidet.
+:- pred float32bits(float, int, int, int, int).
+:- mode float32bits(in, out, out, out, out) is det.
+:- mode float32bits(out, in, in, in, in) is det.
 
 :- pragma foreign_proc(
 	"C",
-	floatBytes(Num::in, Result::out, Rest::in),
+	float32bits(Num::in, B0::out, B1::out, B2::out, B3::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
-		unsigned char bytes [sizeof (float)];
+		unsigned char bytes[4];
 		float value;
 	} conv;
 	conv.value = Num;
-	int i;
-	Result = Rest;
-	for (i = sizeof (float) - 1; i >= 0; i--) {
-						/*	  printf (""%d  %d\n"", i, conv.bytes [i]);*/
-		Result = MR_list_cons (conv.bytes [i], Result);
-	}
-/*		Result = floatToBytes (Num, Rest); /* */
+	B0 = conv.bytes [0];
+	B1 = conv.bytes [1];
+	B2 = conv.bytes [2];
+	B3 = conv.bytes [3];
 	"
 	).
 
 :- pragma foreign_proc(
 	"C",
-	floatBytes(Num::out, List::in, Rest::out),
+	float32bits(Num::out, B0::in, B1::in, B2::in, B3::in),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
-		unsigned char bytes [sizeof (float)];
+		unsigned char bytes[4];
 		float value;
 	} conv;
-	int i;
-	int ok = 1;
-	for (i = 0; i < sizeof (float); i++) {
-		if (MR_list_is_empty (List)) {
-			ok = 0;
-			break;
-		}
-		else {
-			conv.bytes [i] = MR_list_head (List);
-			List = MR_list_tail (List);
-		}
-	}
-	if (ok == 1) {
-		Num = conv.value;
-		Rest = List;
-	}
-	SUCCESS_INDICATOR = ok;
-	"
-	).
-
-
-:- pragma foreign_proc(
-	"Java",
-	floatBytes(NumDouble::in, Result::out, Rest::in),
-	[will_not_call_mercury, thread_safe, promise_pure],
-	"
-	int Num = Float.floatToRawIntBits ((float) NumDouble);
-	Rest = list.cons (new Integer ((Num >> 24) & 0xFF), Rest);
-	Rest = list.cons (new Integer ((Num >> 16) & 0xFF), Rest);
-	Rest = list.cons (new Integer ((Num >> 8) & 0xFF), Rest);
-	Rest = list.cons (new Integer ((Num) & 0xFF), Rest);
-	Result = Rest;
+	conv.bytes [0] = B0;
+	conv.bytes [1] = B1;
+	conv.bytes [2] = B2;
+	conv.bytes [3] = B3;
+	Num = conv.value;
 	"
 	).
 
 :- pragma foreign_proc(
 	"Java",
-	floatBytes(NumDouble::out, List::in, Rest::out),
+	float32bits(Num::in, B0::out, B1::out, B2::out, B3::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
-	int Num = 0;
-	boolean ok = true;
-	for (int i = 0; i < 4; i++) {
-		if (list.is_empty (List)) {
-			ok = false;
-			break;
-		}
-		else {
-			Num = Num | (list.det_head (List).intValue () << (8 * i));
-			List = list.det_tail (List);
-		}
-	}
-	if (ok) {
-		Rest = List;
-		NumDouble = Float.intBitsToFloat (Num);
-	}
-	else {
-		Rest = null;
-		NumDouble =0;
-	}
-	SUCCESS_INDICATOR = ok;
+	int NumInt = Float.floatToRawIntBits ((float) Num);
+	B0 = NumInt & 0xFF;
+	B1 = (NumInt >> 8) & 0xFF;
+	B2 = (NumInt >> 16) & 0xFF;
+	B3 = (NumInt >> 24) & 0xFF;
+	"
+	).
+
+:- pragma foreign_proc(
+	"Java",
+	float32bits(Num::out, B0::in, B1::in, B2::in, B3::in),
+	[will_not_call_mercury, thread_safe, promise_pure],
+	"
+	int NumInt = (B0 & 0xFF)
+	| ((B1 &0xFF) << 8)
+	| ((B2 &0xFF) << 16)
+	| ((B3 &0xFF) << 24);
+	Num = Float.intBitsToFloat (NumInt);
 	"
 	).
 
 
-
-
-:- pred int32Bytes(int, int, int, int, int).
-:- mode int32Bytes(in, out, out, out, out) is det.
-:- mode int32Bytes(out, in, in, in, in) is det.
+:- pred int32bits(int, int, int, int, int).
+:- mode int32bits(in, out, out, out, out) is det.
+:- mode int32bits(out, in, in, in, in) is det.
 
 :- pragma foreign_proc(
 	"C",
-	int32Bytes(Num::in, B0::out, B1::out, B2::out, B3::out),
+	int32bits(Num::in, B0::out, B1::out, B2::out, B3::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
@@ -469,7 +534,7 @@ parseList(Count, List) -->
 
 :- pragma foreign_proc(
 	"C",
-	int32Bytes(Num::out, B0::in, B1::in, B2::in, B3::in),
+	int32bits(Num::out, B0::in, B1::in, B2::in, B3::in),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
@@ -486,19 +551,19 @@ parseList(Count, List) -->
 
 :- pragma foreign_proc(
 	"Java",
-	int32Bytes(Num::in, B0::out, B1::out, B2::out, B3::out),
+	int32bits(Num::in, B0::out, B1::out, B2::out, B3::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	B0 = Num & 0xFF;
 	B1 = (Num >> 8) & 0xFF;
 	B2 = (Num >> 16) & 0xFF;
-	B3 = (Num >> 32) & 0xFF;
+	B3 = (Num >> 24) & 0xFF;
 	"
 	).
 
 :- pragma foreign_proc(
 	"Java",
-	int32Bytes(Num::out, B0::in, B1::in, B2::in, B3::in),
+	int32bits(Num::out, B0::in, B1::in, B2::in, B3::in),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	Num = (B0 & 0xFF)
@@ -509,13 +574,13 @@ parseList(Count, List) -->
 	).
 
 
-:- pred int16Bytes(int, int, int).
-:- mode int16Bytes(in, out, out) is det.
-:- mode int16Bytes(out, in, in) is det.
+:- pred int16bits(int, int, int).
+:- mode int16bits(in, out, out) is det.
+:- mode int16bits(out, in, in) is det.
 
 :- pragma foreign_proc(
 	"C",
-	int16Bytes(Num::in, B0::out, B1::out),
+	int16bits(Num::in, B0::out, B1::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
@@ -530,7 +595,7 @@ parseList(Count, List) -->
 
 :- pragma foreign_proc(
 	"C",
-	int16Bytes(Num::out, B0::in, B1::in),
+	int16bits(Num::out, B0::in, B1::in),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	union {
@@ -545,7 +610,7 @@ parseList(Count, List) -->
 
 :- pragma foreign_proc(
 	"Java",
-	int16Bytes(Num::in, B0::out, B1::out),
+	int16bits(Num::in, B0::out, B1::out),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	B0 = ((short) Num) & 0xFF;
@@ -555,7 +620,7 @@ parseList(Count, List) -->
 
 :- pragma foreign_proc(
 	"Java",
-	int16Bytes(Num::out, B0::in, B1::in),
+	int16bits(Num::out, B0::in, B1::in),
 	[will_not_call_mercury, thread_safe, promise_pure],
 	"
 	Num = (short) ( (((short) B0) & 0xFF)
@@ -564,23 +629,56 @@ parseList(Count, List) -->
 	).
 
 
+:- pred int8bits(int, int).
+:- mode int8bits(in, out) is det.
+:- mode int8bits(out, in) is det.
 
-/*
-parseList(Count, List) -->
-	(if
-		{Count = 0},
-		{List = []}
-	then
-		{true}
-	else if
-		{List = [Element | RestList]},
-		parse(Element)
-	then
-		parseList(Count - 1, RestList)
-	else
-		{throw("Never reached")}
+:- pragma foreign_proc(
+	"C",
+	int8bits(Num::in, B0::out),
+	[will_not_call_mercury, thread_safe, promise_pure],
+	"
+	union {
+		unsigned char bytes[1];
+		int8_t value;
+	} conv;
+	conv.value = (int8_t) Num;
+	B0 = conv.bytes [0];
+	"
 	).
-*/
+
+:- pragma foreign_proc(
+	"C",
+	int8bits(Num::out, B0::in),
+	[will_not_call_mercury, thread_safe, promise_pure],
+	"
+	union {
+		unsigned char bytes[1];
+		int8_t value;
+	} conv;
+	conv.bytes [0] = B0;
+	Num = conv.value;
+	"
+	).
+
+:- pragma foreign_proc(
+	"Java",
+	int8bits(Num::in, B0::out),
+	[will_not_call_mercury, thread_safe, promise_pure],
+	"
+	B0 = ((byte) Num);
+	"
+	).
+
+:- pragma foreign_proc(
+	"Java",
+	int8bits(Num::out, B0::in),
+	[will_not_call_mercury, thread_safe, promise_pure],
+	"
+	Num = B0;
+	"
+	).
+
 :- end_module parseable.
 
 %%% Local Variables: 

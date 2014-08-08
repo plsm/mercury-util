@@ -14,8 +14,6 @@ dnl AC_CONFIG_SRCDIR( rng.distribution.m )
 dnl AC_CONFIG_SRCDIR( mersenneTwister-int.m )
 dnl AC_CONFIG_SRCDIR( mersenneTwister-integer.m)
 
-AC_CONFIG_FILES(Makefile)
-
 ############################################################
 # check for mercury
 AC_PATH_PROG(MMC,mmc,notFound)
@@ -64,5 +62,7 @@ if test "$mersenne_twister" != "int" && test "$mersenne_twister" != "integer" ; 
 		AC_MSG_ERROR([Invalid option])
 	fi
 fi
+
+AC_CONFIG_FILES(Makefile)
 
 AC_OUTPUT
