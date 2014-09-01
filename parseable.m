@@ -12,7 +12,7 @@
 :- interface.
 
 :- include_module iou.
-:- import_module bool, io, list, map, maybe.
+:- import_module bool, io, list, map, maybe, unit.
 
 /**
  * This type class can be used by any type that provides a mean to convert
@@ -110,6 +110,15 @@
 :- mode bool(out, in, out) is semidet.
 
 /**
+ * unit(Value, !List)
+  
+ * Parse a Boolean value to a list of one byte.
+ */
+:- pred unit(unit, parseable.state, parseable.state).
+:- mode unit(in, out, in) is det.
+:- mode unit(out, in, out) is semidet.
+
+/**
  * int32(Value, !List)
 
  * Parse an integer number to a list of four bytes.  This predicate
@@ -160,6 +169,12 @@
  */
 :- instance parseable(bool).
 
+/**
+ * Mercury {@code unit} type is parseable because it does not change the
+ * parser's state.
+ */
+:- instance parseable(unit).
+
 :- implementation.
 
 :- import_module exception, int.
@@ -180,6 +195,11 @@
 :- instance parseable(bool) where
 [
 	pred(parse/3) is bool
+].
+
+:- instance parseable(unit) where
+[
+	pred(parse/3) is unit
 ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -254,6 +274,8 @@ float64(Num, [Byte1, Byte2, Byte3, Byte4, Byte5, Byte6, Byte7, Byte8 | Rest], Re
 
 bool(no)  --> [0].
 bool(yes) --> [1].
+
+unit(unit) --> {true}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of private predicates and functions
