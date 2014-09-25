@@ -141,7 +141,7 @@ random(Min, Max, Number, SupplyIn, SupplyOut) :-
 
 randomFloat(Number, !Supply) :-
 	random(Integer, !Supply),
-	Number = float(Integer) / float(int.max_int).
+	Number = float.abs(float(Integer)) / float(int.max_int).
 
 randomBool(Value, !Supply) :-
 	random(Integer, !Supply),
