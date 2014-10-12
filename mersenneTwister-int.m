@@ -46,9 +46,14 @@
 :- mode init(in, out) is semidet.
 
 /**
- * random.random(Num, RS0, RS)
+ * Return the maximum number returned by this pseudo-random number generator.
+ */
+:- func maxNumber(supply) = int.
 
- * Extracts a number Num in the range 0 .. RandMax from the random number
+/**
+ * random(Num, RS0, RS)
+
+ * Extracts a number Num in the range [0, 0x7FFFFFFF] from the random number
  * supply RS0, and binds RS to the new state of the random number supply.
  */
 :- pred random(int, supply, supply).
@@ -62,10 +67,22 @@
 %:- mode random(in, in, out, di, uo) is det.
 
 /**
- * Return a random floating point number between 0 and 1.
+ * Return a random floating point number from the interval [0,1].
  */
-:- pred randomFloat(float, supply, supply).
-:- mode randomFloat(out, in, out) is det.
+:- pred randomFloat_c0_c1(float, supply, supply).
+:- mode randomFloat_c0_c1(out, in, out) is det.
+
+/**
+ * Return a random floating point number from the interval [0,1[.
+ */
+:- pred randomFloat_c0_o1(float, supply, supply).
+:- mode randomFloat_c0_o1(out, in, out) is det.
+
+/**
+ * Return a random floating point number from the interval ]0,1].
+ */
+:- pred randomFloat_o0_c1(float, supply, supply).
+:- mode randomFloat_o0_c1(out, in, out) is det.
 
 :- pred randomBool(bool, supply, supply).
 :- mode randomBool(out, in, out) is det.
@@ -115,6 +132,8 @@ init(Seed, Supply) :-
 	generateWordsA(0, Area1, Area2),
 	Supply = supply(Area2, 0).
 
+maxNumber(_) = 0x7FFFFFFF.
+
 random(Number, SupplyIn, SupplyOut) :-
 	periodParameters(N, _),
 	(if
@@ -132,16 +151,24 @@ random(Number, SupplyIn, SupplyOut) :-
 	Y2 = int.xor(Y1, int.unchecked_left_shift( Y1,  7) /\ B),
 	Y3 = int.xor(Y2, int.unchecked_left_shift( Y2, 15) /\ C),
 	Y4 = int.xor(Y3, int.unchecked_right_shift(Y3, 18)),
-	Number = Y4,
+	Number = int.unchecked_right_shift(Y4, 1),
 	SupplyOut = supply(NextState, MTI + 1).
 
 random(Min, Max, Number, SupplyIn, SupplyOut) :-
 	random(N, SupplyIn, SupplyOut),
 	Number = Min + int.abs(N) rem (Max - Min + 1).
 
-randomFloat(Number, !Supply) :-
+randomFloat_c0_c1(Number, !Supply) :-
 	random(Integer, !Supply),
-	Number = float.abs(float(Integer)) / float(int.max_int).
+	Number = float(Integer) / 2147483647.0.
+
+randomFloat_c0_o1(Number, !Supply) :-
+	random(Integer, !Supply),
+	Number = float(Integer) / 2147483648.0.
+
+randomFloat_o0_c1(Number, !Supply) :-
+	random(Integer, !Supply),
+	Number = (1.0 + float(Integer)) / 2147483648.0.
 
 randomBool(Value, !Supply) :-
 	random(Integer, !Supply),
@@ -185,7 +212,16 @@ debug(!IO) :-
 	io.nl(!IO),
 	N = 1000,
 	io.format("%d random numbers returned by random/3 with seed %d\n", [i(N), i(Seed)], !IO),
-	debug(0, N, Supply, _, !IO).
+	debugInt(0, N, Supply, _, !IO),
+	io.format("\n\n%d random numbers returned by randomFloat/3 with seed %d\n", [i(N), i(Seed)], !IO),
+	debugFloat(0, N, Supply, _, !IO),
+	
+	io.format("\n\nChecking generation of 0x7FFFFFFF by 'random' with seed %d\n", [i(Seed)], !IO),
+	debugValue(random, 0x7FFFFFFF, 0, Supply, _, !IO),
+	
+	io.format("\n\nChecking generation of 1.0 by 'randomFloat_o0_c1' with seed %d\n", [i(Seed)], !IO),
+	debugValue(randomFloat_o0_c1, 1.0, 0, Supply, _, !IO),
+	true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of private predicates and functions
@@ -322,9 +358,9 @@ generateWordsC(!Area) :-
 
 temperingParameters(0x9D2C5680, 0xEFC60000).
 
-:- pred debug(int::in, int::in, supply::in, supply::out, io::di, io::uo) is det.
+:- pred debugInt(int::in, int::in, supply::in, supply::out, io::di, io::uo) is det.
 
-debug(I, N, !Supply, !IO) :-
+debugInt(I, N, !Supply, !IO) :-
 	(if
 		I = N
 	then
@@ -339,7 +375,45 @@ debug(I, N, !Supply, !IO) :-
 		else
 			true
 		),
-		debug(I + 1, N, !Supply, !IO)
+		debugInt(I + 1, N, !Supply, !IO)
+	).
+
+:- pred debugFloat(int::in, int::in, supply::in, supply::out, io::di, io::uo) is det.
+
+debugFloat(I, N, !Supply, !IO) :-
+	(if
+		I = N
+	then
+		true
+	else
+		randomFloat_c0_c1(Number, !Supply),
+		io.format("%10.8f ", [f(Number)], !IO),
+		(if
+			I mod 5 = 4
+		then
+			io.nl(!IO)
+		else
+			true
+		),
+		debugFloat(I + 1, N, !Supply, !IO)
+	).
+
+:- pred debugValue(
+	pred(T, supply, supply) :: in(pred(out, in, out) is det),
+	T   :: in,
+	int :: in,
+	supply   :: in,  supply   :: out,
+	io.state :: di,  io.state :: uo
+) is det.
+
+debugValue(Generator, Target, Trial, !Supply, !IO) :-
+	Generator(Value, !Supply),
+	(if
+		Value = Target
+	then
+		io.format("Got value after %d trials\n", [i(Trial)], !IO)
+	else
+		debugValue(Generator, Value, Trial + 1, !Supply, !IO)
 	).
 
 :- end_module mersenneTwister.

@@ -161,9 +161,9 @@ flipCoin(Probability, X, !Random) :-
 	).
 
 geometric(Probability, X, !Supply) :-
-	randomFloat(R, !Supply),
+	mersenneTwister.randomFloat_c0_o1(R, !Supply),
 	(if
-		R =< Probability
+		R < Probability
 	then
 		X = 1 + Rest,
 		geometric(Probability, Rest, !Supply)

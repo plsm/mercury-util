@@ -52,13 +52,13 @@ unitGaussian(Result, DistributionIn, DistributionOut, !Random) :-
 	DistributionOut = 'cachedGaussian :='(DistributionIn, no)
 	;
 	DistributionIn^cachedGaussian = no,
-	computeGaussian(Value1, Result, !Random),
+	boxMullerTransform(Value1, Result, !Random),
 	DistributionOut = 'cachedGaussian :='(DistributionIn, yes(Value1))
 	.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Implementation of private predicates and functions
-
+/*
 :- pred computeGaussian(float, float, R, R)
 	<= ePRNG(R).
 :- mode computeGaussian(out, out, in, out) is det.
@@ -87,6 +87,19 @@ computeGaussian(Value1, Value2, !Random) :-
 		Value1 = Factor * SV1,
 		Value2 = Factor * SV2
 	).
+*/
+:- pred boxMullerTransform(float, float, R, R)
+	<= ePRNG(R).
+:- mode boxMullerTransform(out, out, in, out) is det.
+
+boxMullerTransform(Value1, Value2, !Random) :-
+	rng.'nextFloat]0,1]'(V1, !Random),
+	rng.'nextFloat]0,1]'(V2, !Random),
+	Val = math.sqrt(-2.0 * math.ln(V1)),
+	Angle = 2.0 * math.pi * V2,
+	Value1 = Val * math.cos(Angle),
+	Value2 = Val * math.sin(Angle)
+	.
 
 :- end_module rng.distribution.
 

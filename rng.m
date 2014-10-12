@@ -26,7 +26,7 @@
 	 * Return the maximum value that can be returned by the pseudo-random
 	 * number generator.
 	 */
-		func maxValue(R) = int,
+	func maxValue(R) = int,
 
 	/**
 	 * minValue(PRNG) = Value
@@ -52,8 +52,14 @@
  */
 :- typeclass ePRNG(R) <= bPRNG(R) where
   [
-	pred nextFloat(float, R, R),
-	mode nextFloat(out, in, out) is det,
+	pred 'nextFloat[0,1]'(float, R, R),
+	mode 'nextFloat[0,1]'(out, in, out) is det,
+
+	pred 'nextFloat[0,1['(float, R, R),
+	mode 'nextFloat[0,1['(out, in, out) is det,
+
+	pred 'nextFloat]0,1]'(float, R, R),
+	mode 'nextFloat]0,1]'(out, in, out) is det,
 
 	/**
 	 * nextInt(Min, Max, Result, !Random)
@@ -147,13 +153,15 @@
 :- instance ePRNG(random.supply) where
 [
 	pred(nextInt/5) is randomNextInt,
-	pred(nextFloat/3) is randomNextFloat,
+	pred('nextFloat[0,1]'/3) is randomNextFloat_c0_c1,
+	pred('nextFloat[0,1['/3) is randomNextFloat_c0_o1,
+	pred('nextFloat]0,1]'/3) is randomNextFloat_o0_c1,
 	pred(flipCoin/4) is randomFlipCoin
 ].
 
 :- instance bPRNG(mersenneTwister.supply) where
 [
-	func(maxValue/1) is maxint,
+	func(maxValue/1) is mersenneTwister.maxNumber,
 	func(minValue/1) is zero,
 	pred(nextInt/3) is mersenneTwister.random
 ].
@@ -161,7 +169,9 @@
 :- instance ePRNG(mersenneTwister.supply) where
 [
 	pred(nextInt/5) is mersenneTwister.random,
-	pred(nextFloat/3) is mersenneTwister.randomFloat,
+	pred('nextFloat[0,1]'/3) is mersenneTwister.randomFloat_c0_c1,
+	pred('nextFloat[0,1['/3) is mersenneTwister.randomFloat_c0_o1,
+	pred('nextFloat]0,1]'/3) is mersenneTwister.randomFloat_o0_c1,
 	pred(flipCoin/4) is mersenneTwisterFlipCoin
 ].
 
@@ -241,13 +251,29 @@ zero(_Random) = 0.
 
 maxint(_Random) = int.max_int.
 
-:- pred randomNextFloat(float, random.supply, random.supply).
-:- mode randomNextFloat(out, in, out) is det.
+:- pred randomNextFloat_c0_c1(float, random.supply, random.supply).
+:- mode randomNextFloat_c0_c1(out, in, out) is det.
 
-randomNextFloat(Result, !Random) :-
+randomNextFloat_c0_c1(Result, !Random) :-
 	random.random(Value, !Random),
 	random.randmax(MaxValue, !.Random, _),
 	Result = float(Value) / float(MaxValue).
+
+:- pred randomNextFloat_c0_o1(float, random.supply, random.supply).
+:- mode randomNextFloat_c0_o1(out, in, out) is det.
+
+randomNextFloat_c0_o1(Result, !Random) :-
+	random.random(Value, !Random),
+	random.randcount(MaxCount, !.Random, _),
+	Result = float(Value) / float(MaxCount).
+
+:- pred randomNextFloat_o0_c1(float, random.supply, random.supply).
+:- mode randomNextFloat_o0_c1(out, in, out) is det.
+
+randomNextFloat_o0_c1(Result, !Random) :-
+	random.random(Value, !Random),
+	random.randcount(MaxCount, !.Random, _),
+	Result = (1.0 + float(Value)) / float(MaxCount).
 
 :- pred randomNextInt(int, int, int, random.supply, random.supply).
 :- mode randomNextInt(in, in, out, in, out) is det.
@@ -292,9 +318,9 @@ mersenneTwisterFlipCoin(Probability, Result, !Random) :-
 	then
 		Result = yes
 	else
-		mersenneTwister.randomFloat(Value, !Random),
+		mersenneTwister.randomFloat_c0_o1(Value, !Random),
 		(if
-			Value =< Probability
+			Value < Probability
 		then
 			Result = yes
 		else
